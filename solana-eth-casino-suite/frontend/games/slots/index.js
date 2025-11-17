@@ -1,0 +1,323 @@
+/**
+ * Slots Game with p5.js
+ * Interactive multi-reel slot machine with animations
+ */
+
+import p5 from 'p5';
+import { api } from '../../common/api.js';
+import { UIHelper } from '../../common/ui.js';
+
+const SYMBOLS = ['🍒', '🍋', '🍊', '🍇', '💎', '⭐', '7️⃣', '🔔', '💰', '👑'];
+const REELS = 5;
+const ROWS = 3;
+const SYMBOL_SIZE = 80;
+const REEL_WIDTH = 100;
+const SPIN_DURATION = 2000;
+
+class SlotsGame {
+    constructor(p, config) {
+        this.p = p;
+        this.config = config;
+        this.reels = [];
+        this.spinning = false;
+        this.stake = 10;
+        this.balance = 0;
+        this.mode = 'demo';
+        this.lastResult = null;
+        this.particles = [];
+
+        this.initializeReels();
+    }
+
+    initializeReels() {
+        for (let i = 0; i < REELS; i++) {
+            this.reels.push({
+                symbols: this.generateReelSymbols(),
+                offset: 0,
+                targetOffset: 0,
+                spinning: false,
+                speed: 0
+            });
+        }
+    }
+
+    generateReelSymbols(count = 20) {
+        const symbols = [];
+        for (let i = 0; i < count; i++) {
+            symbols.push(SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]);
+        }
+        return symbols;
+    }
+
+    async spin() {
+        if (this.spinning) return;
+        if (this.balance < this.stake) {
+            UIHelper.showNotification('Insufficient balance!', 'error');
+            return;
+        }
+
+        this.spinning = true;
+        UIHelper.showLoading('Placing bet...');
+
+        try {
+            // Place bet
+            const betResponse = await api.placeBet('slots', this.stake, this.mode, {
+                reels: REELS,
+                symbols: SYMBOLS.length
+            }, UIHelper.generateClientSeed());
+
+            const betId = betResponse.data.bet_id;
+
+            // Start spinning animation
+            this.startSpinAnimation();
+
+            // Resolve bet after a delay
+            setTimeout(async () => {
+                try {
+                    const result = await api.resolveBet(betId);
+                    this.lastResult = result.data;
+
+                    // Stop reels with result
+                    this.stopSpinAnimation(result.data.outcome.reels);
+
+                    // Update balance
+                    await this.updateBalance();
+
+                    // Show result
+                    if (result.data.payout > 0) {
+                        UIHelper.showNotification(
+                            `You won ${UIHelper.formatCurrency(result.data.payout)}!`,
+                            'success'
+                        );
+                        this.createWinParticles();
+                    }
+                } catch (error) {
+                    UIHelper.showNotification('Failed to resolve bet: ' + error.message, 'error');
+                }
+
+                UIHelper.hideLoading();
+                this.spinning = false;
+            }, SPIN_DURATION);
+
+        } catch (error) {
+            UIHelper.showNotification('Failed to place bet: ' + error.message, 'error');
+            UIHelper.hideLoading();
+            this.spinning = false;
+        }
+    }
+
+    startSpinAnimation() {
+        this.reels.forEach((reel, index) => {
+            reel.spinning = true;
+            reel.speed = 20 + (index * 2);
+        });
+    }
+
+    stopSpinAnimation(results) {
+        this.reels.forEach((reel, index) => {
+            setTimeout(() => {
+                reel.spinning = false;
+                reel.targetOffset = results[index] * SYMBOL_SIZE;
+            }, 300 * index);
+        });
+    }
+
+    async updateBalance() {
+        try {
+            const userData = await api.getMe();
+            this.balance = this.mode === 'demo'
+                ? userData.data.user.demo_balance
+                : userData.data.user.nugget_balance;
+
+            this.updateUI();
+        } catch (error) {
+            console.error('Failed to update balance:', error);
+        }
+    }
+
+    createWinParticles() {
+        const p = this.p;
+        for (let i = 0; i < 50; i++) {
+            this.particles.push({
+                x: p.width / 2,
+                y: p.height / 2,
+                vx: p.random(-5, 5),
+                vy: p.random(-8, -2),
+                life: 255,
+                color: p.color(p.random(200, 255), p.random(150, 255), p.random(0, 100))
+            });
+        }
+    }
+
+    draw() {
+        const p = this.p;
+        p.background(20, 20, 40);
+
+        // Draw machine frame
+        p.fill(40, 40, 60);
+        p.rect(50, 100, REELS * REEL_WIDTH + 50, ROWS * SYMBOL_SIZE + 50, 20);
+
+        // Draw reels
+        for (let i = 0; i < REELS; i++) {
+            this.drawReel(i, 75 + i * REEL_WIDTH, 125);
+        }
+
+        // Draw particles
+        this.updateParticles();
+
+        // Draw UI
+        this.drawUI();
+    }
+
+    drawReel(reelIndex, x, y) {
+        const p = this.p;
+        const reel = this.reels[reelIndex];
+
+        // Update reel offset
+        if (reel.spinning) {
+            reel.offset += reel.speed;
+            if (reel.offset >= SYMBOL_SIZE * reel.symbols.length) {
+                reel.offset = 0;
+            }
+        } else {
+            // Ease to target
+            const diff = reel.targetOffset - reel.offset;
+            reel.offset += diff * 0.1;
+        }
+
+        // Draw reel background
+        p.fill(60, 60, 80);
+        p.rect(x, y, REEL_WIDTH - 10, ROWS * SYMBOL_SIZE, 10);
+
+        // Clip to reel area
+        p.push();
+        p.clip(() => {
+            p.rect(x, y, REEL_WIDTH - 10, ROWS * SYMBOL_SIZE);
+        });
+
+        // Draw symbols
+        for (let i = -1; i < ROWS + 1; i++) {
+            const symbolIndex = Math.floor((reel.offset / SYMBOL_SIZE + i)) % reel.symbols.length;
+            const symbolY = y + i * SYMBOL_SIZE - (reel.offset % SYMBOL_SIZE);
+
+            p.fill(255);
+            p.textAlign(p.CENTER, p.CENTER);
+            p.textSize(60);
+            p.text(reel.symbols[symbolIndex], x + REEL_WIDTH / 2 - 5, symbolY + SYMBOL_SIZE / 2);
+        }
+
+        p.pop();
+    }
+
+    updateParticles() {
+        const p = this.p;
+
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const particle = this.particles[i];
+
+            particle.x += particle.vx;
+            particle.y += particle.vy;
+            particle.vy += 0.2; // Gravity
+            particle.life -= 5;
+
+            p.fill(particle.color);
+            p.noStroke();
+            p.circle(particle.x, particle.y, 8);
+
+            if (particle.life <= 0) {
+                this.particles.splice(i, 1);
+            }
+        }
+    }
+
+    drawUI() {
+        const p = this.p;
+
+        // Balance
+        p.fill(255);
+        p.textSize(20);
+        p.textAlign(p.LEFT);
+        p.text(`Balance: ${UIHelper.formatCurrency(this.balance)}`, 50, 50);
+
+        // Stake
+        p.text(`Stake: ${UIHelper.formatCurrency(this.stake)}`, 50, 80);
+
+        // Last result
+        if (this.lastResult) {
+            p.text(`Last Win: ${UIHelper.formatCurrency(this.lastResult.payout)}`, 300, 50);
+            p.text(`Multiplier: ${this.lastResult.multiplier}x`, 300, 80);
+        }
+    }
+
+    updateUI() {
+        const balanceEl = document.getElementById('balance-display');
+        if (balanceEl) {
+            balanceEl.textContent = UIHelper.formatCurrency(this.balance);
+        }
+    }
+}
+
+// Initialize game when DOM is ready
+document.addEventListener('DOMContentLoaded', async () => {
+    // Create UI elements
+    const container = document.createElement('div');
+    container.className = 'game-container';
+
+    const controls = document.createElement('div');
+    controls.className = 'game-controls';
+    controls.innerHTML = `
+        <div class="control-group">
+            <label>Stake:</label>
+            <input type="number" id="stake-input" value="10" min="1" max="1000">
+        </div>
+        <button id="spin-btn" class="btn btn-primary btn-large">SPIN</button>
+        <button id="back-btn" class="btn btn-secondary">Back to Lobby</button>
+    `;
+
+    document.body.appendChild(container);
+    document.body.appendChild(controls);
+
+    let game;
+
+    // Initialize p5
+    const sketch = (p) => {
+        p.setup = async () => {
+            p.createCanvas(700, 600).parent(container);
+            p.textFont('Arial');
+
+            // Get config
+            const config = await api.getGameConfig();
+
+            game = new SlotsGame(p, config.data.games.slots);
+
+            // Update balance
+            await game.updateBalance();
+        };
+
+        p.draw = () => {
+            if (game) {
+                game.draw();
+            }
+        };
+    };
+
+    new p5(sketch);
+
+    // Event listeners
+    document.getElementById('spin-btn').addEventListener('click', () => {
+        if (game) {
+            game.stake = parseFloat(document.getElementById('stake-input').value) || 10;
+            game.spin();
+        }
+    });
+
+    document.getElementById('back-btn').addEventListener('click', () => {
+        window.location.href = '/';
+    });
+
+    document.getElementById('stake-input').addEventListener('input', (e) => {
+        if (game) {
+            game.stake = parseFloat(e.target.value) || 10;
+        }
+    });
+});

@@ -1,0 +1,31 @@
+{
+  "name": "casino-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for Solana-ETH Casino Suite",
+  "scripts": {
+    "build": "npm run build:lobby && npm run build:games && npm run build:dashboard && npm run build:admin",
+    "build:lobby": "esbuild lobby/index.js --bundle --outfile=public/lobby.bundle.js --sourcemap",
+    "build:games": "npm run build:slots && npm run build:roulette && npm run build:blackjack",
+    "build:slots": "esbuild games/slots/index.js --bundle --outfile=public/games/slots.bundle.js --sourcemap",
+    "build:roulette": "esbuild games/roulette/index.js --bundle --outfile=public/games/roulette.bundle.js --sourcemap",
+    "build:blackjack": "esbuild games/blackjack/index.js --bundle --outfile=public/games/blackjack.bundle.js --sourcemap",
+    "build:dashboard": "esbuild dashboard/index.js --bundle --outfile=public/dashboard.bundle.js --sourcemap",
+    "build:admin": "esbuild admin/index.js --bundle --outfile=public/admin.bundle.js --sourcemap",
+    "dev": "npm run build -- --watch",
+    "test": "jest",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.87.6",
+    "ethers": "^6.9.2",
+    "p5": "^1.8.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.19.11",
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
