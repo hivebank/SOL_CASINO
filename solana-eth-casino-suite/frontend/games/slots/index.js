@@ -1,269 +1,608 @@
 /**
- * SOTA Slots Game - Online Casino Standard
- * Features: Progressive Jackpot, Free Spins, Wild/Scatter, Bonus Rounds, Autoplay
+ * State-of-the-Art Slots Game - Professional Casino Standard
+ * Complete implementation with all modern casino features
  */
 
 import p5 from 'p5';
 import { api } from '../../common/api.js';
 import { UIHelper } from '../../common/ui.js';
 
+// Symbol definitions with weighted probabilities
 const SYMBOLS = {
-    CHERRY: { id: 0, icon: '🍒', value: 5, name: 'Cherry' },
-    LEMON: { id: 1, icon: '🍋', value: 10, name: 'Lemon' },
-    ORANGE: { id: 2, icon: '🍊', value: 15, name: 'Orange' },
-    PLUM: { id: 3, icon: '🍇', value: 20, name: 'Plum' },
-    BELL: { id: 4, icon: '🔔', value: 30, name: 'Bell' },
-    STAR: { id: 5, icon: '⭐', value: 50, name: 'Star' },
-    SEVEN: { id: 6, icon: '7️⃣', value: 100, name: 'Seven' },
-    DIAMOND: { id: 7, icon: '💎', value: 200, name: 'Diamond' },
-    WILD: { id: 8, icon: '🎰', value: 0, name: 'Wild' },
-    SCATTER: { id: 9, icon: '⚡', value: 0, name: 'Scatter' }
+    CHERRY: { id: 0, icon: '🍒', value: 5, weight: 15 },
+    LEMON: { id: 1, icon: '🍋', value: 10, weight: 12 },
+    ORANGE: { id: 2, icon: '🍊', value: 15, weight: 10 },
+    PLUM: { id: 3, icon: '🍇', value: 20, weight: 8 },
+    BELL: { id: 4, icon: '🔔', value: 30, weight: 6 },
+    STAR: { id: 5, icon: '⭐', value: 50, weight: 4 },
+    SEVEN: { id: 6, icon: '7️⃣', value: 100, weight: 2 },
+    DIAMOND: { id: 7, icon: '💎', value: 200, weight: 1 },
+    WILD: { id: 8, icon: '🎰', value: 0, weight: 3 },
+    SCATTER: { id: 9, icon: '⚡', value: 0, weight: 2 }
 };
 
-const REELS = 5;
-const ROWS = 3;
-const SYMBOL_SIZE = 90;
-const REEL_WIDTH = 110;
+const CONFIG = {
+    REELS: 5,
+    ROWS: 3,
+    SYMBOL_SIZE: 90,
+    REEL_WIDTH: 110,
+    PAYLINES: 25,
+    MAX_BET_LEVEL: 10,
+    SPIN_DURATION: 1500
+};
 
-class SlotsGame {
-    constructor(p, config) {
-        this.p = p;
-        this.config = config;
-        this.reels = [];
-        this.spinning = false;
-        this.stake = 10;
-        this.balance = 0;
-        this.mode = 'demo';
-        this.lastResult = null;
-        this.particles = [];
-
-        this.initializeReels();
+// Jackpot Manager - handles progressive jackpots
+class JackpotManager {
+    constructor() {
+        this.jackpots = {
+            mini: 100,
+            minor: 500,
+            major: 2500,
+            grand: 10000
+        };
+        this.seeds = {
+            mini: 100,
+            minor: 500,
+            major: 2500,
+            grand: 10000
+        };
     }
 
-    initializeReels() {
-        for (let i = 0; i < REELS; i++) {
+    contribute(betAmount) {
+        this.jackpots.mini += betAmount * 0.01;
+        this.jackpots.minor += betAmount * 0.02;
+        this.jackpots.major += betAmount * 0.03;
+        this.jackpots.grand += betAmount * 0.04;
+    }
+
+    win(tier) {
+        const amount = this.jackpots[tier];
+        this.jackpots[tier] = this.seeds[tier];
+        return amount;
+    }
+
+    getAll() {
+        return { ...this.jackpots };
+    }
+}
+
+// Sound Manager (framework - add actual audio files in production)
+class SoundManager {
+    constructor() {
+        this.enabled = true;
+        this.volume = 0.7;
+    }
+
+    play(sound) {
+        if (!this.enabled) return;
+        console.log(`🔊 ${sound}`);
+        // In production: load and play actual audio files
+    }
+
+    toggle() {
+        this.enabled = !this.enabled;
+        return this.enabled;
+    }
+}
+
+// Main Slots Game Class
+class SOTASlotsGame {
+    constructor(p) {
+        this.p = p;
+
+        // Game state
+        this.reels = [];
+        this.spinning = false;
+        this.balance = 0;
+        this.mode = 'demo';
+
+        // Betting
+        this.stake = 10;
+        this.betLevel = 1;
+        this.activePaylines = CONFIG.PAYLINES;
+
+        // Features
+        this.jackpotManager = new JackpotManager();
+        this.soundManager = new SoundManager();
+
+        // Free Spins
+        this.freeSpins = {
+            active: false,
+            remaining: 0,
+            multiplier: 1,
+            totalWin: 0,
+            triggeredCount: 0
+        };
+
+        // Autoplay
+        this.autoplay = {
+            active: false,
+            remaining: 0,
+            stopOnWin: false,
+            stopOnBonus: false,
+            stopOnBalance: 0
+        };
+
+        // Visual effects
+        this.particles = [];
+        this.winLines = [];
+        this.bigWinActive = false;
+        this.winCounter = 0;
+        this.winTarget = 0;
+
+        // Statistics
+        this.stats = {
+            spins: 0,
+            totalWagered: 0,
+            totalWon: 0,
+            biggestWin: 0,
+            bonusCount: 0,
+            jackpotWins: []
+        };
+
+        this.initReels();
+    }
+
+    initReels() {
+        for (let i = 0; i < CONFIG.REELS; i++) {
             this.reels.push({
-                symbols: this.generateReelSymbols(),
+                symbols: this.generateSymbols(),
                 offset: 0,
-                targetOffset: 0,
+                target: 0,
                 spinning: false,
                 speed: 0
             });
         }
     }
 
-    generateReelSymbols(count = 20) {
+    generateSymbols(count = 40) {
+        const pool = [];
+        Object.values(SYMBOLS).forEach(sym => {
+            for (let i = 0; i < sym.weight; i++) {
+                pool.push(sym.id);
+            }
+        });
+
         const symbols = [];
         for (let i = 0; i < count; i++) {
-            symbols.push(SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]);
+            symbols.push(pool[Math.floor(Math.random() * pool.length)]);
         }
         return symbols;
     }
 
     async spin() {
         if (this.spinning) return;
-        if (this.balance < this.stake) {
+
+        const cost = this.freeSpins.active ? 0 : this.stake * this.betLevel;
+
+        if (!this.freeSpins.active && this.balance < cost) {
             UIHelper.showNotification('Insufficient balance!', 'error');
             return;
         }
 
         this.spinning = true;
-        UIHelper.showLoading('Placing bet...');
+        this.stats.spins++;
+
+        if (!this.freeSpins.active) {
+            this.stats.totalWagered += cost;
+            this.jackpotManager.contribute(cost);
+        }
+
+        this.soundManager.play('spin');
+        UIHelper.showLoading(this.freeSpins.active ? 'Free Spin...' : 'Spinning...');
 
         try {
-            // Place bet
-            const betResponse = await api.placeBet('slots', this.stake, this.mode, {
-                reels: REELS,
-                symbols: SYMBOLS.length
+            const result = await api.placeBet('slots', cost, this.mode, {
+                reels: CONFIG.REELS,
+                paylines: this.activePaylines,
+                betLevel: this.betLevel
             }, UIHelper.generateClientSeed());
 
-            const betId = betResponse.data.bet_id;
-
-            // Start spinning animation
             this.startSpinAnimation();
 
-            // Resolve bet after a delay
             setTimeout(async () => {
-                try {
-                    const result = await api.resolveBet(betId);
-                    this.lastResult = result.data;
-
-                    // Stop reels with result
-                    this.stopSpinAnimation(result.data.outcome.reels);
-
-                    // Update balance
-                    await this.updateBalance();
-
-                    // Show result
-                    if (result.data.payout > 0) {
-                        UIHelper.showNotification(
-                            `You won ${UIHelper.formatCurrency(result.data.payout)}!`,
-                            'success'
-                        );
-                        this.createWinParticles();
-                    }
-                } catch (error) {
-                    UIHelper.showNotification('Failed to resolve bet: ' + error.message, 'error');
-                }
+                const resolved = await api.resolveBet(result.data.bet_id);
+                await this.processWin(resolved.data);
 
                 UIHelper.hideLoading();
                 this.spinning = false;
-            }, SPIN_DURATION);
+
+                // Handle autoplay
+                if (this.autoplay.active) {
+                    this.autoplay.remaining--;
+                    if (this.shouldStopAutoplay(resolved.data)) {
+                        this.stopAutoplay();
+                    } else if (this.autoplay.remaining > 0) {
+                        setTimeout(() => this.spin(), 800);
+                    } else {
+                        this.stopAutoplay();
+                    }
+                }
+
+                // Continue free spins
+                if (this.freeSpins.active && this.freeSpins.remaining > 0) {
+                    setTimeout(() => this.spin(), 1200);
+                }
+            }, CONFIG.SPIN_DURATION);
 
         } catch (error) {
-            UIHelper.showNotification('Failed to place bet: ' + error.message, 'error');
+            UIHelper.showNotification('Bet failed: ' + error.message, 'error');
             UIHelper.hideLoading();
             this.spinning = false;
         }
     }
 
+    async processWin(result) {
+        const reels = result.outcome.reels;
+        this.stopSpinAnimation(reels);
+
+        await this.updateBalance();
+
+        // Count special symbols
+        const scatters = this.countSymbol(reels, SYMBOLS.SCATTER.id);
+
+        // Calculate payout with multiplier
+        const multiplier = this.freeSpins.active ? this.freeSpins.multiplier : 1;
+        const payout = result.payout * multiplier;
+
+        if (this.freeSpins.active) {
+            this.freeSpins.totalWin += payout;
+            this.freeSpins.remaining--;
+        }
+
+        if (payout > 0) {
+            this.stats.totalWon += payout;
+            if (payout > this.stats.biggestWin) {
+                this.stats.biggestWin = payout;
+            }
+
+            // Big win?
+            if (payout >= this.stake * this.betLevel * 15) {
+                this.triggerBigWin(payout);
+            } else {
+                this.createParticles(50);
+                this.soundManager.play('win');
+            }
+
+            this.animateWinCounter(payout);
+            UIHelper.showNotification(`Won ${UIHelper.formatCurrency(payout)}!`, 'success');
+        }
+
+        // Check jackpot
+        await this.checkJackpot(reels);
+
+        // Trigger free spins
+        if (scatters >= 3 && !this.freeSpins.active) {
+            this.triggerFreeSpins(scatters);
+        }
+
+        // End free spins
+        if (this.freeSpins.active && this.freeSpins.remaining === 0) {
+            this.endFreeSpins();
+        }
+    }
+
+    async checkJackpot(reels) {
+        const patterns = [
+            { symbols: [7,7,7,7,7], tier: 'grand' },
+            { symbols: [6,6,6,6,6], tier: 'major' },
+            { symbols: [5,5,5,5,5], tier: 'minor' },
+            { symbols: [4,4,4,4,4], tier: 'mini' }
+        ];
+
+        for (const pattern of patterns) {
+            if (this.matchesPattern(reels, pattern.symbols)) {
+                const amount = this.jackpotManager.win(pattern.tier);
+                this.stats.jackpotWins.push({ tier: pattern.tier, amount, date: new Date() });
+                await this.showJackpotWin(pattern.tier, amount);
+                break;
+            }
+        }
+    }
+
+    matchesPattern(reels, pattern) {
+        return reels.every((reel, i) => reel === pattern[i]);
+    }
+
+    countSymbol(reels, symbolId) {
+        return reels.filter(id => id === symbolId).length;
+    }
+
+    triggerFreeSpins(scatterCount) {
+        const spins = [0, 0, 0, 10, 15, 20][Math.min(scatterCount, 5)];
+        const mult = [1, 1, 1, 2, 3, 5][Math.min(scatterCount, 5)];
+
+        this.freeSpins = {
+            active: true,
+            remaining: spins,
+            multiplier: mult,
+            totalWin: 0,
+            triggeredCount: this.freeSpins.triggeredCount + 1
+        };
+
+        this.stats.bonusCount++;
+        this.soundManager.play('bonus');
+
+        UIHelper.showNotification(`🎊 FREE SPINS! ${spins} spins with ${mult}x multiplier! 🎊`, 'success');
+    }
+
+    endFreeSpins() {
+        const total = this.freeSpins.totalWin;
+        this.freeSpins.active = false;
+
+        UIHelper.showNotification(`🎉 Free Spins Complete! Won ${UIHelper.formatCurrency(total)}! 🎉`, 'success');
+    }
+
+    async showJackpotWin(tier, amount) {
+        this.soundManager.play('jackpot');
+        this.bigWinActive = true;
+
+        UIHelper.showNotification(`💰 ${tier.toUpperCase()} JACKPOT! Won ${UIHelper.formatCurrency(amount)}! 💰`, 'success');
+
+        this.balance += amount;
+        await this.updateBalance();
+        setTimeout(() => { this.bigWinActive = false; }, 4000);
+    }
+
+    triggerBigWin(amount) {
+        this.bigWinActive = true;
+        this.soundManager.play('bigwin');
+        this.createParticles(150);
+
+        setTimeout(() => { this.bigWinActive = false; }, 4000);
+    }
+
+    startAutoplay(spins, options = {}) {
+        this.autoplay = {
+            active: true,
+            remaining: spins,
+            stopOnWin: options.stopOnWin || false,
+            stopOnBonus: options.stopOnBonus || false,
+            stopOnBalance: options.stopOnBalance || 0
+        };
+        this.spin();
+    }
+
+    stopAutoplay() {
+        this.autoplay.active = false;
+        this.autoplay.remaining = 0;
+    }
+
+    shouldStopAutoplay(result) {
+        if (this.autoplay.stopOnWin && result.payout > 0) return true;
+        if (this.autoplay.stopOnBonus && this.freeSpins.active) return true;
+        if (this.autoplay.stopOnBalance > 0 && this.balance <= this.autoplay.stopOnBalance) return true;
+        return false;
+    }
+
     startSpinAnimation() {
-        this.reels.forEach((reel, index) => {
+        this.reels.forEach((reel, i) => {
             reel.spinning = true;
-            reel.speed = 20 + (index * 2);
+            reel.speed = 25 + i * 3;
         });
     }
 
     stopSpinAnimation(results) {
-        this.reels.forEach((reel, index) => {
+        this.reels.forEach((reel, i) => {
             setTimeout(() => {
                 reel.spinning = false;
-                reel.targetOffset = results[index] * SYMBOL_SIZE;
-            }, 300 * index);
+                reel.target = results[i] * CONFIG.SYMBOL_SIZE;
+                this.soundManager.play('stop');
+            }, 300 * i);
         });
     }
 
-    async updateBalance() {
-        try {
-            const userData = await api.getMe();
-            this.balance = this.mode === 'demo'
-                ? userData.data.user.demo_balance
-                : userData.data.user.nugget_balance;
+    animateWinCounter(target) {
+        this.winCounter = 0;
+        this.winTarget = target;
+        const step = target / 40;
 
-            this.updateUI();
-        } catch (error) {
-            console.error('Failed to update balance:', error);
-        }
+        const animate = () => {
+            if (this.winCounter < this.winTarget) {
+                this.winCounter = Math.min(this.winCounter + step, this.winTarget);
+                requestAnimationFrame(animate);
+            }
+        };
+        animate();
     }
 
-    createWinParticles() {
+    createParticles(count) {
         const p = this.p;
-        for (let i = 0; i < 50; i++) {
+        for (let i = 0; i < count; i++) {
             this.particles.push({
                 x: p.width / 2,
                 y: p.height / 2,
-                vx: p.random(-5, 5),
-                vy: p.random(-8, -2),
+                vx: p.random(-10, 10),
+                vy: p.random(-15, -5),
                 life: 255,
-                color: p.color(p.random(200, 255), p.random(150, 255), p.random(0, 100))
+                size: p.random(6, 14),
+                color: p.color(p.random(200,255), p.random(150,255), p.random(0,150))
             });
         }
     }
 
+    async updateBalance() {
+        try {
+            const user = await api.getMe();
+            this.balance = this.mode === 'demo' ?
+                user.data.user.demo_balance : user.data.user.nugget_balance;
+        } catch (e) {
+            console.error('Balance update failed:', e);
+        }
+    }
+
+    // Draw methods
     draw() {
         const p = this.p;
-        p.background(20, 20, 40);
+        p.background(5, 5, 15);
 
-        // Draw machine frame
-        p.fill(40, 40, 60);
-        p.rect(50, 100, REELS * REEL_WIDTH + 50, ROWS * SYMBOL_SIZE + 50, 20);
+        this.drawBackground();
+        this.drawJackpots();
+        this.drawReelFrame();
+        this.drawReels();
+        this.drawParticles();
 
-        // Draw reels
-        for (let i = 0; i < REELS; i++) {
-            this.drawReel(i, 75 + i * REEL_WIDTH, 125);
-        }
+        if (this.bigWinActive) this.drawBigWin();
+        if (this.freeSpins.active) this.drawFreeSpinsBanner();
 
-        // Draw particles
-        this.updateParticles();
-
-        // Draw UI
         this.drawUI();
     }
 
-    drawReel(reelIndex, x, y) {
+    drawBackground() {
         const p = this.p;
-        const reel = this.reels[reelIndex];
+        p.noStroke();
+        for (let i = 0; i < 6; i++) {
+            p.fill(10 + i*5, 10 + i*5, 25 + i*8, 80);
+            p.circle(
+                p.width/2 + p.sin(p.frameCount*0.008 + i)*150,
+                p.height/2 + p.cos(p.frameCount*0.008 + i)*150,
+                250 + i*60
+            );
+        }
+    }
 
-        // Update reel offset
+    drawJackpots() {
+        const p = this.p;
+        const j = this.jackpotManager.getAll();
+        const x = p.width - 280;
+        let y = 30;
+
+        p.textSize(14);
+        p.textAlign(p.LEFT);
+        p.textFont('monospace');
+
+        const colors = {
+            grand: [255,215,0],
+            major: [255,100,100],
+            minor: [100,200,255],
+            mini: [150,255,150]
+        };
+
+        Object.entries(j).forEach(([tier, amt]) => {
+            p.fill(...colors[tier]);
+            p.text(`${tier.toUpperCase()}: $${amt.toFixed(2)}`, x, y);
+            y += 22;
+        });
+    }
+
+    drawReelFrame() {
+        const p = this.p;
+        p.fill(15, 15, 30, 220);
+        p.stroke(80, 80, 120);
+        p.strokeWeight(5);
+        p.rect(40, 140, CONFIG.REELS * CONFIG.REEL_WIDTH + 60, CONFIG.ROWS * CONFIG.SYMBOL_SIZE + 60, 25);
+    }
+
+    drawReels() {
+        for (let i = 0; i < CONFIG.REELS; i++) {
+            this.drawReel(i, 70 + i * CONFIG.REEL_WIDTH, 170);
+        }
+    }
+
+    drawReel(idx, x, y) {
+        const p = this.p;
+        const reel = this.reels[idx];
+
         if (reel.spinning) {
             reel.offset += reel.speed;
-            if (reel.offset >= SYMBOL_SIZE * reel.symbols.length) {
+            if (reel.offset >= CONFIG.SYMBOL_SIZE * reel.symbols.length) {
                 reel.offset = 0;
             }
         } else {
-            // Ease to target
-            const diff = reel.targetOffset - reel.offset;
-            reel.offset += diff * 0.1;
+            reel.offset += (reel.target - reel.offset) * 0.15;
         }
 
-        // Draw reel background
-        p.fill(60, 60, 80);
-        p.rect(x, y, REEL_WIDTH - 10, ROWS * SYMBOL_SIZE, 10);
+        p.fill(25, 25, 45);
+        p.noStroke();
+        p.rect(x, y, CONFIG.REEL_WIDTH - 10, CONFIG.ROWS * CONFIG.SYMBOL_SIZE, 12);
 
-        // Clip to reel area
         p.push();
-        p.clip(() => {
-            p.rect(x, y, REEL_WIDTH - 10, ROWS * SYMBOL_SIZE);
-        });
+        p.clip(() => p.rect(x, y, CONFIG.REEL_WIDTH - 10, CONFIG.ROWS * CONFIG.SYMBOL_SIZE));
 
-        // Draw symbols
-        for (let i = -1; i < ROWS + 1; i++) {
-            const symbolIndex = Math.floor((reel.offset / SYMBOL_SIZE + i)) % reel.symbols.length;
-            const symbolY = y + i * SYMBOL_SIZE - (reel.offset % SYMBOL_SIZE);
+        for (let i = -1; i < CONFIG.ROWS + 2; i++) {
+            const symIdx = Math.floor((reel.offset / CONFIG.SYMBOL_SIZE + i)) % reel.symbols.length;
+            const sym = Object.values(SYMBOLS).find(s => s.id === reel.symbols[symIdx]);
+            const symY = y + i * CONFIG.SYMBOL_SIZE - (reel.offset % CONFIG.SYMBOL_SIZE);
 
-            p.fill(255);
-            p.textAlign(p.CENTER, p.CENTER);
-            p.textSize(60);
-            p.text(reel.symbols[symbolIndex], x + REEL_WIDTH / 2 - 5, symbolY + SYMBOL_SIZE / 2);
+            if (sym) {
+                // Special symbol glow
+                if (sym.id === SYMBOLS.WILD.id || sym.id === SYMBOLS.SCATTER.id) {
+                    p.fill(255, 215, 0, 120);
+                    p.circle(x + CONFIG.REEL_WIDTH/2 - 5, symY + CONFIG.SYMBOL_SIZE/2, 85);
+                }
+
+                p.fill(255);
+                p.textAlign(p.CENTER, p.CENTER);
+                p.textSize(66);
+                p.text(sym.icon, x + CONFIG.REEL_WIDTH/2 - 5, symY + CONFIG.SYMBOL_SIZE/2);
+            }
         }
 
         p.pop();
     }
 
-    updateParticles() {
+    drawParticles() {
         const p = this.p;
-
         for (let i = this.particles.length - 1; i >= 0; i--) {
-            const particle = this.particles[i];
+            const part = this.particles[i];
+            part.x += part.vx;
+            part.y += part.vy;
+            part.vy += 0.4;
+            part.life -= 6;
 
-            particle.x += particle.vx;
-            particle.y += particle.vy;
-            particle.vy += 0.2; // Gravity
-            particle.life -= 5;
-
-            p.fill(particle.color);
+            p.fill(part.color);
             p.noStroke();
-            p.circle(particle.x, particle.y, 8);
+            p.circle(part.x, part.y, part.size);
 
-            if (particle.life <= 0) {
-                this.particles.splice(i, 1);
-            }
+            if (part.life <= 0) this.particles.splice(i, 1);
         }
+    }
+
+    drawBigWin() {
+        const p = this.p;
+        const flash = 150 + Math.sin(p.frameCount * 0.15) * 105;
+        p.fill(255, 215, 0, flash);
+        p.rect(0, 0, p.width, p.height);
+
+        p.textSize(100);
+        p.textAlign(p.CENTER, p.CENTER);
+        p.fill(255, 215, 0);
+        p.text('BIG WIN!', p.width/2, p.height/2 - 50);
+
+        p.textSize(70);
+        p.fill(255);
+        p.text(`$${this.winCounter.toFixed(2)}`, p.width/2, p.height/2 + 60);
+    }
+
+    drawFreeSpinsBanner() {
+        const p = this.p;
+        p.fill(138, 43, 226, 230);
+        p.rect(0, 90, p.width, 70);
+
+        p.textSize(36);
+        p.textAlign(p.CENTER, p.CENTER);
+        p.fill(255);
+        p.text(
+            `FREE SPINS: ${this.freeSpins.remaining} | ${this.freeSpins.multiplier}x | Won: $${this.freeSpins.totalWin.toFixed(2)}`,
+            p.width/2, 125
+        );
     }
 
     drawUI() {
         const p = this.p;
-
-        // Balance
         p.fill(255);
-        p.textSize(20);
+        p.textSize(22);
         p.textAlign(p.LEFT);
-        p.text(`Balance: ${UIHelper.formatCurrency(this.balance)}`, 50, 50);
+        p.text(`Balance: $${this.balance.toFixed(2)}`, 40, 35);
+        p.text(`Bet: $${(this.stake * this.betLevel).toFixed(2)}`, 40, 65);
+        p.text(`Paylines: ${this.activePaylines}`, 40, 95);
 
-        // Stake
-        p.text(`Stake: ${UIHelper.formatCurrency(this.stake)}`, 50, 80);
+        p.textSize(16);
+        p.text(`Spins: ${this.stats.spins}`, 40, 120);
 
-        // Last result
-        if (this.lastResult) {
-            p.text(`Last Win: ${UIHelper.formatCurrency(this.lastResult.payout)}`, 300, 50);
-            p.text(`Multiplier: ${this.lastResult.multiplier}x`, 300, 80);
-        }
-    }
-
-    updateUI() {
-        const balanceEl = document.getElementById('balance-display');
-        if (balanceEl) {
-            balanceEl.textContent = UIHelper.formatCurrency(this.balance);
+        if (this.autoplay.active) {
+            p.fill(255, 215, 0);
+            p.text(`AUTO: ${this.autoplay.remaining}`, p.width - 150, 35);
         }
     }
 }
@@ -281,7 +620,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             <label>Stake:</label>
             <input type="number" id="stake-input" value="10" min="1" max="1000">
         </div>
+        <div class="control-group">
+            <label>Bet Level:</label>
+            <input type="number" id="bet-level-input" value="1" min="1" max="${CONFIG.MAX_BET_LEVEL}">
+        </div>
         <button id="spin-btn" class="btn btn-primary btn-large">SPIN</button>
+        <button id="autoplay-btn" class="btn btn-primary">AUTO (10)</button>
+        <button id="stop-auto-btn" class="btn btn-secondary" style="display:none">STOP AUTO</button>
         <button id="back-btn" class="btn btn-secondary">Back to Lobby</button>
     `;
 
@@ -293,13 +638,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initialize p5
     const sketch = (p) => {
         p.setup = async () => {
-            p.createCanvas(700, 600).parent(container);
+            p.createCanvas(1000, 700).parent(container);
             p.textFont('Arial');
 
-            // Get config
-            const config = await api.getGameConfig();
-
-            game = new SlotsGame(p, config.data.games.slots);
+            game = new SOTASlotsGame(p);
 
             // Update balance
             await game.updateBalance();
@@ -316,19 +658,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Event listeners
     document.getElementById('spin-btn').addEventListener('click', () => {
-        if (game) {
+        if (game && !game.autoplay.active) {
             game.stake = parseFloat(document.getElementById('stake-input').value) || 10;
+            game.betLevel = parseInt(document.getElementById('bet-level-input').value) || 1;
             game.spin();
+        }
+    });
+
+    document.getElementById('autoplay-btn').addEventListener('click', () => {
+        if (game && !game.autoplay.active) {
+            game.stake = parseFloat(document.getElementById('stake-input').value) || 10;
+            game.betLevel = parseInt(document.getElementById('bet-level-input').value) || 1;
+            game.startAutoplay(10);
+
+            document.getElementById('autoplay-btn').style.display = 'none';
+            document.getElementById('stop-auto-btn').style.display = 'inline-block';
+        }
+    });
+
+    document.getElementById('stop-auto-btn').addEventListener('click', () => {
+        if (game) {
+            game.stopAutoplay();
+            document.getElementById('autoplay-btn').style.display = 'inline-block';
+            document.getElementById('stop-auto-btn').style.display = 'none';
         }
     });
 
     document.getElementById('back-btn').addEventListener('click', () => {
         window.location.href = '/';
-    });
-
-    document.getElementById('stake-input').addEventListener('input', (e) => {
-        if (game) {
-            game.stake = parseFloat(e.target.value) || 10;
-        }
     });
 });
