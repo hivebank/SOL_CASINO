@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.3'
+        extensions: mongodb, zip, mbstring
+        coverage: none
+
+    - name: Install Composer dependencies
+      working-directory: ./backend-php
+      run: composer install --prefer-dist --no-progress
+
+    - name: Run PHP CodeSniffer
+      working-directory: ./backend-php
+      run: composer lint || true
+
+    - name: Run PHPUnit tests
+      working-directory: ./backend-php
+      run: composer test
+      env:
+        MONGO_URI: mongodb://localhost:27017
+        MONGO_DATABASE: casino_test
+        JWT_SECRET: test-secret-key-for-ci-only-min-32-characters
+
+  frontend-build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Build frontend
+      working-directory: ./frontend
+      run: npm run build
+
+    - name: Run linter
+      working-directory: ./frontend
+      run: npm run lint || true
+
+  docker-build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Build Docker image
+      working-directory: ./backend-php
+      run: docker build -f docker/Dockerfile -t casino-backend:test .
+
+    - name: Test Docker Compose
+      run: |
+        docker-compose -f infra/docker-compose.yml config
+        echo "Docker Compose configuration is valid"

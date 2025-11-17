@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Casino - Solana & Ethereum Powered</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%);
+            color: #fff;
+            min-height: 100vh;
+        }
+
+        .warning-banner {
+            background: linear-gradient(90deg, #ff6b6b, #ee5a6f);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        #canvas-container {
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .section {
+            background: rgba(30, 30, 50, 0.8);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            color: #ffc857;
+        }
+
+        .wallet-section, .mode-section {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .mode-toggles {
+            display: flex;
+            gap: 10px;
+        }
+
+        .mode-toggle {
+            padding: 10px 20px;
+            border: 2px solid #4a4a6a;
+            background: transparent;
+            color: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .mode-toggle.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+        }
+
+        .mode-toggle:hover {
+            border-color: #667eea;
+        }
+
+        .balance-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .balance-card {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .balance-card h3 {
+            margin-bottom: 10px;
+            font-size: 16px;
+            color: #aaa;
+        }
+
+        .balance-amount {
+            font-size: 32px;
+            font-weight: bold;
+            color: #ffc857;
+            margin-bottom: 15px;
+        }
+
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+        }
+
+        .game-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.1));
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .game-card:hover {
+            transform: translateY(-10px);
+            border-color: #667eea;
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+        }
+
+        .game-card .icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+        }
+
+        .game-card h3 {
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
+        .game-card p {
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #4a4a6a;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a5a7a;
+        }
+
+        .navigation {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .text-muted {
+            color: #888;
+            font-style: italic;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            background: #667eea;
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+
+        .notification.notification-error {
+            background: #ff6b6b;
+        }
+
+        .notification.notification-success {
+            background: #51cf66;
+        }
+
+        .notification.notification-info {
+            background: #339af0;
+        }
+
+        .notification.fade-out {
+            animation: fadeOut 0.3s ease;
+        }
+
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .loading-content {
+            text-align: center;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="warning-banner">
+        ⚠️ DEMO MODE ONLY - NOT FOR REAL-MONEY GAMBLING - Educational and Development Purposes ⚠️
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div class="container">
+        <div class="section">
+            <h2>Mode Selection</h2>
+            <div id="mode-section" class="mode-section">
+                <div class="mode-toggles">
+                    <button class="mode-toggle" data-mode="demo">🎮 Demo Mode</button>
+                    <button class="mode-toggle" data-mode="testnet">🧪 Testnet Mode</button>
+                    <button class="mode-toggle" data-mode="production">🚀 Production (Disabled)</button>
+                </div>
+                <p class="text-muted">Select your operating mode</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Wallet Connection</h2>
+            <div id="wallet-section" class="wallet-section">
+                <button id="connect-phantom-btn" class="btn btn-primary">Connect Phantom (Solana)</button>
+                <button id="connect-metamask-btn" class="btn btn-primary">Connect MetaMask (Ethereum)</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Balances</h2>
+            <div id="balance-section" class="balance-section">
+                <p class="text-muted">Connect wallet to view balances</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Games</h2>
+            <div class="games-grid">
+                <div class="game-card" data-game="slots">
+                    <div class="icon">🎰</div>
+                    <h3>Slots</h3>
+                    <p>Multi-reel slot machine with dynamic paylines and free spins</p>
+                </div>
+                <div class="game-card" data-game="roulette">
+                    <div class="icon">🎯</div>
+                    <h3>Roulette</h3>
+                    <p>European roulette with animated wheel and various bet types</p>
+                </div>
+                <div class="game-card" data-game="blackjack">
+                    <div class="icon">🃏</div>
+                    <h3>Blackjack</h3>
+                    <p>Classic 21 with dealer AI and multi-action gameplay</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Navigation</h2>
+            <div class="navigation">
+                <button id="dashboard-btn" class="btn btn-primary">User Dashboard</button>
+                <button id="admin-btn" class="btn btn-secondary">Admin Panel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../public/lobby.bundle.js"></script>
+</body>
+</html>

@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Casino</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%);
+            color: #fff;
+            font-family: 'Segoe UI', sans-serif;
+            padding: 20px;
+        }
+
+        .admin-header {
+            background: rgba(50, 30, 30, 0.8);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            border: 2px solid rgba(255, 100, 100, 0.3);
+        }
+
+        .admin-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .admin-panel {
+            background: rgba(30, 30, 50, 0.8);
+            border-radius: 15px;
+            padding: 25px;
+        }
+
+        .admin-panel h2 {
+            color: #ff6b6b;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, rgba(255, 100, 100, 0.1), rgba(200, 50, 50, 0.1));
+            border: 2px solid rgba(255, 100, 100, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .stat-card h3 {
+            color: #aaa;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ffc857;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        th {
+            color: #ff6b6b;
+            font-weight: bold;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .btn-success {
+            background: #51cf66;
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #aaa;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 2px solid #4a4a6a;
+            background: #2a2a3e;
+            color: #fff;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-warning {
+            background: rgba(255, 200, 100, 0.2);
+            border: 2px solid #ffc857;
+            color: #ffc857;
+        }
+
+        .suspicious-users {
+            background: rgba(255, 100, 100, 0.2);
+            border: 2px solid #ff6b6b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-header">
+        <h1>🔒 Admin Dashboard</h1>
+        <div class="alert alert-warning">
+            ⚠️ Admin Access - Handle with Care - All actions are logged
+        </div>
+        <button onclick="window.location.href='/'" class="btn btn-primary">Back to Lobby</button>
+    </div>
+
+    <div class="admin-grid">
+        <div class="admin-panel">
+            <h2>Statistics</h2>
+            <div id="stats-container">
+                <div class="stat-card">
+                    <h3>Total Bets</h3>
+                    <div class="stat-value" id="total-bets">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Wagered</h3>
+                    <div class="stat-value" id="total-wagered">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Payout</h3>
+                    <div class="stat-value" id="total-payout">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>House Profit</h3>
+                    <div class="stat-value" id="house-profit">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Nugget Supply</h3>
+                    <div class="stat-value" id="nugget-supply">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="admin-panel">
+            <h2>Quick Actions</h2>
+            <button onclick="runPayroll()" class="btn btn-success" style="width: 100%; margin-bottom: 10px;">Run Daily Payroll</button>
+            <button onclick="commitSeed()" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">Commit New Server Seed</button>
+            <button onclick="showPayout()" class="btn btn-primary" style="width: 100%;">Issue Manual Payout</button>
+        </div>
+    </div>
+
+    <div class="admin-panel">
+        <h2>Recent Bets</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>User ID</th>
+                    <th>Game</th>
+                    <th>Stake</th>
+                    <th>Payout</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="recent-bets">
+                <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="admin-panel">
+        <h2>Provably Fair Seeds</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Committed At</th>
+                    <th>Hash</th>
+                    <th>Active</th>
+                    <th>Revealed</th>
+                    <th>Bets Count</th>
+                </tr>
+            </thead>
+            <tbody id="seeds-table">
+                <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="suspicious-container"></div>
+
+    <script type="module">
+        import { api } from '../common/api.js';
+        import { UIHelper } from '../common/ui.js';
+
+        async function loadAdmin() {
+            try {
+                const stats = await api.adminGetStats();
+                document.getElementById('total-bets').textContent = stats.data.bets.total_bets;
+                document.getElementById('total-wagered').textContent = UIHelper.formatCurrency(stats.data.bets.total_wagered);
+                document.getElementById('total-payout').textContent = UIHelper.formatCurrency(stats.data.bets.total_payout);
+                document.getElementById('house-profit').textContent = UIHelper.formatCurrency(stats.data.bets.house_profit);
+                document.getElementById('nugget-supply').textContent = UIHelper.formatCurrency(stats.data.nugget_supply);
+
+                if (stats.data.suspicious_users && stats.data.suspicious_users.length > 0) {
+                    const suspiciousHTML = `
+                        <div class="admin-panel suspicious-users">
+                            <h2>⚠️ Suspicious Activity Detected</h2>
+                            ${stats.data.suspicious_users.map(user => `
+                                <div style="margin-bottom: 10px;">
+                                    <strong>User ID:</strong> ${user.user_id}<br>
+                                    <strong>Win Rate:</strong> ${(user.win_rate * 100).toFixed(2)}%<br>
+                                    <strong>Total Bets:</strong> ${user.total_bets}<br>
+                                    <strong>Reason:</strong> ${user.reason}
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                    document.getElementById('suspicious-container').innerHTML = suspiciousHTML;
+                }
+
+                const bets = await api.adminListBets({}, 20);
+                const betsEl = document.getElementById('recent-bets');
+                if (bets.data.bets.length > 0) {
+                    betsEl.innerHTML = bets.data.bets.map(bet => `
+                        <tr>
+                            <td>${UIHelper.formatDate(bet.created_at)}</td>
+                            <td>${bet.user_id.substring(0, 8)}...</td>
+                            <td>${bet.game}</td>
+                            <td>${UIHelper.formatCurrency(bet.stake)}</td>
+                            <td>${UIHelper.formatCurrency(bet.payout || 0)}</td>
+                            <td>${bet.status}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    betsEl.innerHTML = '<tr><td colspan="6" style="text-align: center;">No bets yet</td></tr>';
+                }
+
+                const seeds = await api.adminListSeeds(10);
+                const seedsEl = document.getElementById('seeds-table');
+                if (seeds.data.seeds.length > 0) {
+                    seedsEl.innerHTML = seeds.data.seeds.map(seed => `
+                        <tr>
+                            <td>${UIHelper.formatDate(seed.committed_at)}</td>
+                            <td>${seed.server_seed_hash.substring(0, 16)}...</td>
+                            <td>${seed.is_active ? '✅' : '❌'}</td>
+                            <td>${seed.is_revealed ? '✅' : '❌'}</td>
+                            <td>${seed.bets_count}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    seedsEl.innerHTML = '<tr><td colspan="5" style="text-align: center;">No seeds yet</td></tr>';
+                }
+
+            } catch (error) {
+                UIHelper.showNotification('Failed to load admin panel: ' + error.message, 'error');
+                setTimeout(() => window.location.href = '/', 2000);
+            }
+        }
+
+        window.runPayroll = async function() {
+            if (!confirm('Run daily payroll for all eligible users?')) return;
+
+            UIHelper.showLoading('Running payroll...');
+            try {
+                const result = await api.adminRunPayroll('daily');
+                UIHelper.hideLoading();
+                UIHelper.showNotification(
+                    `Payroll completed! Paid ${result.data.users_paid} users, total: ${UIHelper.formatCurrency(result.data.total_amount)}`,
+                    'success'
+                );
+            } catch (error) {
+                UIHelper.hideLoading();
+                UIHelper.showNotification('Failed to run payroll: ' + error.message, 'error');
+            }
+        };
+
+        window.commitSeed = async function() {
+            if (!confirm('Commit a new server seed? This will deactivate the current seed.')) return;
+
+            UIHelper.showLoading('Committing seed...');
+            try {
+                await api.adminCommitSeed();
+                UIHelper.hideLoading();
+                UIHelper.showNotification('New server seed committed!', 'success');
+                loadAdmin();
+            } catch (error) {
+                UIHelper.hideLoading();
+                UIHelper.showNotification('Failed to commit seed: ' + error.message, 'error');
+            }
+        };
+
+        window.showPayout = function() {
+            const modal = UIHelper.showModal('Issue Manual Payout', `
+                <div class="form-group">
+                    <label>User ID:</label>
+                    <input type="text" id="payout-user-id" placeholder="Enter user ID">
+                </div>
+                <div class="form-group">
+                    <label>Amount:</label>
+                    <input type="number" id="payout-amount" placeholder="Enter amount">
+                </div>
+                <div class="form-group">
+                    <label>Reason:</label>
+                    <input type="text" id="payout-reason" placeholder="Enter reason">
+                </div>
+            `, [
+                { text: 'Cancel', className: 'btn' },
+                {
+                    text: 'Issue Payout',
+                    className: 'btn btn-success',
+                    onClick: async () => {
+                        const userId = document.getElementById('payout-user-id').value;
+                        const amount = parseFloat(document.getElementById('payout-amount').value);
+                        const reason = document.getElementById('payout-reason').value;
+
+                        if (!userId || !amount || !reason) {
+                            UIHelper.showNotification('All fields are required', 'error');
+                            return;
+                        }
+
+                        UIHelper.showLoading('Issuing payout...');
+                        try {
+                            await api.adminIssuePayout(userId, amount, reason);
+                            UIHelper.hideLoading();
+                            UIHelper.showNotification('Payout issued successfully!', 'success');
+                        } catch (error) {
+                            UIHelper.hideLoading();
+                            UIHelper.showNotification('Failed to issue payout: ' + error.message, 'error');
+                        }
+                    }
+                }
+            ]);
+        };
+
+        loadAdmin();
+        setInterval(loadAdmin, 30000); // Refresh every 30 seconds
+    </script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: casino-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=casino
+    networks:
+      - casino-network
+
+  backend:
+    build:
+      context: ../backend-php
+      dockerfile: docker/Dockerfile
+    container_name: casino-backend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ../backend-php:/var/www/html
+    environment:
+      - APP_ENV=development
+      - APP_DEBUG=true
+      - MONGO_URI=mongodb://mongodb:27017
+      - MONGO_DATABASE=casino
+      - JWT_SECRET=dev-secret-key-change-in-production-min-32-chars
+      - SOLANA_RPC_URL=https://api.devnet.solana.com
+      - ETH_RPC_URL=https://goerli.infura.io/v3/
+      - OPERATING_MODE=demo
+    depends_on:
+      - mongodb
+    networks:
+      - casino-network
+
+  # Optional: Solana test validator (uncomment to use local validator)
+  # solana-validator:
+  #   image: solanalabs/solana:v1.17.0
+  #   container_name: casino-solana-validator
+  #   command: solana-test-validator --reset
+  #   ports:
+  #     - "8899:8899"
+  #     - "8900:8900"
+  #   networks:
+  #     - casino-network
+
+  # Optional: Ganache for local Ethereum testing
+  # ganache:
+  #   image: trufflesuite/ganache:latest
+  #   container_name: casino-ganache
+  #   ports:
+  #     - "8545:8545"
+  #   command: --deterministic --accounts=10 --defaultBalanceEther=100
+  #   networks:
+  #     - casino-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  casino-network:
+    driver: bridge
