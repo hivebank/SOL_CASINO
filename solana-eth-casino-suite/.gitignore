@@ -1,0 +1,78 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+vendor/
+composer.phar
+
+# Build outputs
+frontend/dist/
+frontend/build/
+*.bundle.js
+*.bundle.css
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# PHP
+backend-php/cache/
+backend-php/storage/
+backend-php/sessions/
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Testing
+coverage/
+.nyc_output/
+phpunit.xml
+.phpunit.result.cache
+
+# Blockchain
+contracts/erc20/artifacts/
+contracts/erc20/cache/
+contracts/erc20/node_modules/
+contracts/spl/target/
+contracts/spl/.anchor/
+test-ledger/
+.anchor/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Security - never commit these!
+*.pem
+*.key
+!docker/*.key
+*.p12
+*.pfx
+wallet.json
+id.json
