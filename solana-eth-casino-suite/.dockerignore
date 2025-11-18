@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# CI/CD
+.github/
+
+# IDE
+.vscode/
+.idea/
+
+# Dependencies (will be installed in container)
+backend-php/vendor/
+node_modules/
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Environment files (use Railway env vars instead)
+.env
+.env.local
+.env.*.local
+
+# Tests
+tests/
+phpunit.xml
